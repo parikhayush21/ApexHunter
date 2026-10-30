@@ -646,12 +646,22 @@ is decided in [ROADMAP.md](ROADMAP.md).
 The step-by-step plan and the rules for working on the project are in ROADMAP §0 and §3.
 
 ### Working
+- CI/CD configuration added (29 Oct 2026): Docker build, fatal-error/dependency checks, unit
+  tests and Streamlit startup check; GHCR publication on pushes to `main` and an optional
+  deployment hook. GitHub verified the Docker build, static/dependency checks, all 127 unit tests
+  (zero skips) and HTTP startup on 30 Oct 2026. GHCR publication runs on `main`; hosting remains
+  unconfigured. See [CI_CD.md](CI_CD.md) for the YAML explanation and activation steps.
 - Telemetry download and cleaning for all 92 sessions; Spark, HDFS and MongoDB integration (last run May 2026).
 - Isolation Forest, racing-line and CV inference pipelines run end to end.
 - Dashboard with all five tabs.
 - Test suite: 145 tests, all passing (127 unit + 18 integration); no mock tests (test audit rounds 2–3).
 
 ### Fixed
+- **30 Oct 2026 – CI dashboard test compatibility.** The first container run passed Docker
+  build, Ruff and dependency checks and ran all 127 unit tests without skips. The dropdown-lock
+  test failed because it selected only Streamlit's former `UnknownElement` representation.
+  It now uses `at.get("html")` while retaining its real script and JavaScript-flag assertions.
+  The CI rerun passed all 127 unit tests with zero skips; see [CI_CD.md](CI_CD.md).
 - **Oct 2026 – Binary brake handling.** `Brake` is now treated as an on/off flag across cleaning
   (pandas and Spark clip 0–1), Isolation Forest features, racing-line node cost and the dashboard.
   The Telemetry tab shows "Brake (on/off)" as a step line, brake overlap means brake on and
@@ -824,6 +834,11 @@ The step-by-step plan and the rules for working on the project are in ROADMAP §
   removed (`ruff check --select F` now passes).
 
 ### Known issues (to be fixed)
+
+CI/CD operational limits: no hosting is configured, so live deployment is skipped. Real-data
+integration tests are not run in CI; the dataset, cache and models must be supplied separately.
+The Docker build/test/startup path passed on GitHub; image publication runs only on `main`.
+Existing Python requirements remain unpinned. See [CI_CD.md](CI_CD.md).
 
 | # | Area | Issue |
 |---|---|---|
