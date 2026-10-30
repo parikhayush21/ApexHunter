@@ -1,5 +1,7 @@
 # 🏎️ ApexHunter 2.0 — F1 Telemetry & Onboard-Video Analytics
 
+[![ApexHunter CI/CD](https://github.com/parikhayush21/ApexHunter/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/parikhayush21/ApexHunter/actions/workflows/ci-cd.yml)
+
 ApexHunter 2.0 analyses Formula 1 driving performance using official telemetry (FastF1, 2023–2024
 seasons, ~57.9M rows) and onboard pole-lap video (46 laps). It combines classical machine learning,
 deep learning and graph search, and shows the results in an interactive Streamlit dashboard.
@@ -27,7 +29,13 @@ verification) are in §0 and §3 of the roadmap.
 ## 📁 Project Structure
 
 ```text
-ApexHunter 2.0/
+ApexHunter/
+├── .github/
+│   ├── workflows/ci-cd.yml          # build, checks, unit tests, packaging, optional deployment hook
+│   └── dependabot.yml              # weekly GitHub Actions and Docker base-image update PRs
+├── .streamlit/config.toml           # Streamlit server configuration
+├── .dockerignore                    # excludes secrets, datasets, models and caches from builds
+├── Dockerfile                       # Python 3.12 CPU image, non-root user, HTTP health check
 ├── backend/
 │   ├── config.json                  # seasons, CV thresholds, circuits, video URLs
 │   └── scripts/
@@ -68,12 +76,31 @@ ApexHunter 2.0/
 ## 🚀 Getting Started
 
 ### 1. Install
+
+CI and the Docker image use **Python 3.12**. To run the project directly on your computer:
+
 ```bash
-git clone https://github.com/ParinShah2312/ApexHunter.git
-cd "ApexHunter 2.0"
+git clone https://github.com/parikhayush21/ApexHunter.git
+cd ApexHunter
 python -m venv .venv
-.venv\Scripts\activate              # Windows
-pip install -r requirements.txt
+```
+
+Activate the environment on Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Or on Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Then install the dependencies:
+
+```bash
+python -m pip install -r requirements.txt
 ```
 
 ### 2. Data pipeline
@@ -107,20 +134,53 @@ streamlit run frontend/app.py
 ```
 
 ### 5. Tests
+
 ```bash
 python backend/scripts/tests/run_tests.py          # unit tests (fast)
 python backend/scripts/tests/run_tests.py --all    # unit + integration (slow)
 python backend/scripts/tests/run_tests.py --file test_racing_line_pipeline.py   # one file (integration files run, not skipped)
 ```
 
+CI runs the unit suite. Real-data integration tests also need the local `data_lake/` and FastF1
+`cache/`; they are not included in CI. The pipeline's HTTP check verifies Streamlit startup,
+while telemetry, videos and model results require the corresponding data files.
+
 ### 6. CI/CD
 
-GitHub Actions checks every branch push and pull request, builds a CPU Docker image, runs the
-existing unit tests and checks Streamlit startup. Successful pushes to `main` publish the tested
-image to GitHub Container Registry. Live deployment is skipped until an optional hosting webhook
-is configured. The dashboard keyboard-lock test uses AppTest's public HTML lookup to support
-current Streamlit releases. Setup, limitations and the YAML explanation:
-**[docs/CI_CD.md](docs/CI_CD.md)**.
+The [GitHub Actions workflow](.github/workflows/ci-cd.yml) runs automatically after a push to any
+branch and when a pull request is opened or updated. It can also be run manually from the
+repository's [Actions tab](https://github.com/parikhayush21/ApexHunter/actions/workflows/ci-cd.yml).
+
+| Stage | What happens |
+|---|---|
+| Build | Creates a Python 3.12 Docker image with CPU-only PyTorch. |
+| Check | Runs Ruff fatal-error checks and verifies installed dependency compatibility. |
+| Test | Runs the existing unit suite and checks Streamlit's HTTP health endpoint. |
+| Publish | After successful checks on a push to `main`, pushes the same tested image to GitHub Container Registry. |
+| Deploy | Requests a hosting deployment only when the `DEPLOY_WEBHOOK_URL` repository secret is configured. |
+
+Published images use `ghcr.io/parikhayush21/apexhunter:<full-commit-sha>` and
+`ghcr.io/parikhayush21/apexhunter:latest`. A failed check stops publication and deployment.
+Pull requests, other branches and manual runs perform checks without publishing an image.
+
+GitHub supplies the registry authentication token automatically. **Hosting is not configured**;
+the deployment step records a skip until a hosting webhook is added. For the YAML explanation,
+webhook setup, image access and persistent storage, see **[docs/CI_CD.md](docs/CI_CD.md)**.
+
+### 7. Run with Docker
+
+With Docker Engine running, build and launch the dashboard from the repository root:
+
+```bash
+docker build -t apexhunter:local .
+docker run --rm --publish 8501:8501 apexhunter:local
+```
+
+Open [http://localhost:8501](http://localhost:8501). The image excludes the data lake, models and
+FastF1 cache. Without cleaned telemetry, the dashboard displays a missing-data message.
+To use existing results, mount persistent folders at `/app/data_lake`, `/app/models` and
+`/app/cache`; the cache must be writable by the container's user (UID 10001). The
+[deployment guide](docs/CI_CD.md#docker-and-persistent-data) includes a complete mount example.
 
 ### Optional: Big Data stack
 Requires a local Hadoop/HDFS (`hdfs://localhost:9000`) and MongoDB (`localhost:27017`).
@@ -154,6 +214,7 @@ python backend/scripts/bigdata/mongo_manager.py --upload --stats
 | Deep learning | PyTorch (LSTM), Ultralytics YOLOv11-Seg, OpenCV |
 | Frontend | Streamlit, Plotly |
 | Testing | unittest, parallel runner |
+| CI/CD | GitHub Actions, Docker, GitHub Container Registry, Dependabot |
 
 ---
 
